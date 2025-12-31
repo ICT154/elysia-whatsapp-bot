@@ -116,3 +116,22 @@ export async function checkSession(name: string) {
 
     return { status: "waiting_qr" as const };
 }
+
+export async function getSockOrThrow(name: string) {
+    const s = await ensureSession(name);
+
+    if (!s.sock) throw new Error("socket_not_ready");
+
+    if (!s.connected) {
+        throw new Error("session_not_connected");
+    }
+
+    return s.sock;
+}
+
+export function toJid(phone: string) {
+    // 62812xxxx -> 62812xxxx@s.whatsapp.net
+    const digits = phone.replace(/\D/g, "");
+    return `${digits}@s.whatsapp.net`;
+}
+
