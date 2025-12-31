@@ -3,6 +3,7 @@ import { resolveWebhook } from "./webhook/WebhookManager";
 import { existsSync } from "fs";
 import { rm } from "fs/promises";
 import QRCode from "qrcode";
+import pino from "pino";
 
 type SessionState = {
     name: string;
@@ -33,7 +34,10 @@ export async function ensureSession(name: string) {
     };
     sessions.set(name, s);
 
-    const sock = makeWASocket({ auth: state });
+    const sock = makeWASocket({
+        auth: state, logger: pino({ level: "silent" })
+    });
+
     s.sock = sock;
 
     sock.ev.on("creds.update", saveCreds);
