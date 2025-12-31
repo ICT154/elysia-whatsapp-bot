@@ -1,4 +1,5 @@
 import makeWASocket, { DisconnectReason, useMultiFileAuthState } from "baileys";
+import { resolveWebhook } from "./webhook/WebhookManager";
 import { existsSync } from "fs";
 import { rm } from "fs/promises";
 import QRCode from "qrcode";
@@ -66,6 +67,51 @@ export async function ensureSession(name: string) {
             }
         }
     });
+
+    sock.ev.on("messages.upsert", async ({ messages, type }) => {
+        if (type !== "notify") return;
+
+        const msg = messages?.[0];
+        if (!msg?.message) return;
+        if (msg.key.fromMe) return;
+
+        const remoteJid = msg.key.remoteJid || "";
+        const from = remoteJid;
+
+        const text =
+            msg.message.conversation ||
+            msg.message.extendedTextMessage?.text ||
+            msg.message.imageMessage?.caption ||
+            msg.message.videoMessage?.caption ||
+            "";
+
+        const payload = {
+            session: name,
+            from,
+            clearFrom: from.replace(/@.*/, ""),
+            isGroup: remoteJid.endsWith("@g.us"),
+            messageId: msg.key.id,
+            timestamp: msg.messageTimestamp,
+            text,
+            raw: msg.message,
+        };
+
+        const cfg = await resolveWebhook(name);
+        if (!cfg?.url) return;
+
+        try {
+            await fetch(cfg.url, {
+                method: "POST",
+                headers: {
+                    "content-type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+        } catch (e) {
+            console.error("webhook_forward_failed", e);
+        }
+    });
+
 
     return s;
 }
