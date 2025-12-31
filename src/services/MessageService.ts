@@ -51,4 +51,19 @@ export class MessageService {
 
         return { ok: true };
     }
+
+    static async sendYesNoPoll(session: string, to: string, question: string) {
+        const sock = await getSockOrThrow(session);
+        const jid = toJid(to);
+
+        await sock.sendMessage(jid, {
+            poll: {
+                name: question,
+                values: ["Ya, akan hadir", "Tidak dapat hadir"],
+                selectableCount: 1,
+            },
+        });
+
+        return { ok: true };
+    }
 }

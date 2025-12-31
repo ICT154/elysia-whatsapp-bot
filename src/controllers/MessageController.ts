@@ -80,4 +80,17 @@ export class MessageController {
             };
         }
     }
+
+    static async sendYesNoPoll({ params, body, set }: any) {
+        const session = params.session;
+        const { to, question } = body as { to: string; question: string };
+
+        if (!to || !question) {
+            set.status = 400;
+            return { ok: false, error: "to & question wajib" };
+        }
+
+        return await MessageService.sendYesNoPoll(session, to, question);
+    }
+
 }

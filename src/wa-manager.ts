@@ -2,6 +2,11 @@ import makeWASocket, { DisconnectReason, useMultiFileAuthState } from "baileys";
 import { resolveWebhook } from "./webhook/WebhookManager";
 import { existsSync } from "fs";
 import { rm } from "fs/promises";
+import {
+    getAggregateVotesInPollMessage,
+    updateMessageWithPollUpdate,
+} from "baileys";
+import { savePollMessage, getPollMessage } from "./poll/PollStore";
 import QRCode from "qrcode";
 import pino from "pino";
 
@@ -80,7 +85,67 @@ export async function ensureSession(name: string) {
         if (msg.key.fromMe) return;
 
         const remoteJid = msg.key.remoteJid || "";
-        const from = remoteJid;
+        const isGroup = remoteJid.endsWith("@g.us");
+
+        const pollCreation = msg.message?.pollCreationMessage;
+        if (pollCreation && msg.key.id) {
+            savePollMessage(remoteJid, msg.key.id, msg as any);
+        }
+
+        const pollUpdate = msg.message?.pollUpdateMessage;
+        if (pollUpdate?.pollCreationMessageKey?.id) {
+            const pollId = pollUpdate.pollCreationMessageKey.id;
+            const stored = getPollMessage(remoteJid, pollId);
+
+            if (stored) {
+                updateMessageWithPollUpdate(stored as any, pollUpdate as any);
+
+                const aggregates = getAggregateVotesInPollMessage({
+                    message: stored.message,
+                    pollUpdates: (stored as any).pollUpdates,
+                });
+
+                const top = aggregates
+                    .slice()
+                    .sort((a: any, b: any) => (b.voters?.length || 0) - (a.voters?.length || 0))[0];
+
+                const selectedOption = top?.name || null;
+
+                const answer =
+                    selectedOption?.toLowerCase().includes("ya") ? "YA"
+                        : selectedOption?.toLowerCase().includes("tidak") ? "TIDAK"
+                            : "UNKNOWN";
+
+                const payload = {
+                    session: name,
+                    type: "poll_vote",
+                    from: remoteJid,
+                    isGroup,
+                    messageId: msg.key.id,
+                    poll: {
+                        pollId,
+                        selectedOption,
+                        answer,
+                    },
+                    timestamp: msg.messageTimestamp,
+                };
+
+                const cfg = await resolveWebhook(name);
+                if (cfg?.url) {
+                    try {
+                        await fetch(cfg.url, {
+                            method: "POST",
+                            headers: { "content-type": "application/json" },
+                            body: JSON.stringify(payload),
+                        });
+                    } catch (e) {
+                        console.error("webhook_forward_failed", e);
+                    }
+                }
+            }
+
+            return;
+        }
 
         const text =
             msg.message.conversation ||
