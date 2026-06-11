@@ -52,14 +52,14 @@ export class MessageService {
         return { ok: true };
     }
 
-    static async sendYesNoPoll(session: string, to: string, question: string) {
+    static async sendYesNoPoll(session: string, to: string, question: string, yesValue?: string, noValue?: string) {
         const sock = await getSockOrThrow(session);
         const jid = toJid(to);
 
         await sock.sendMessage(jid, {
             poll: {
                 name: question,
-                values: ["Ya, akan hadir", "Tidak dapat hadir"],
+                values: [yesValue || "Yes", noValue || "No"],
                 selectableCount: 1,
             },
         });
