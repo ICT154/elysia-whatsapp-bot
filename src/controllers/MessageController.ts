@@ -80,4 +80,29 @@ export class MessageController {
             };
         }
     }
+
+    static async sendYesNoPoll({ params, body, set }: any) {
+        try {
+            const session = params.session;
+            const { to, question, yesValue, noValue } = body as { to: string; question: string; yesValue?: string; noValue?: string };
+
+            if (!to || !question) {
+                set.status = 400;
+                return { ok: false, error: "to & question wajib" };
+            }
+
+            return {
+                status: 'success',
+                message: 'Yes/No poll sent successfully',
+                data: await MessageService.sendYesNoPoll(session, to, question, yesValue, noValue)
+            }
+        } catch (error) {
+            return {
+                status: 'error',
+                message: 'Failed to send Yes/No poll',
+                error: error instanceof Error ? error.message : String(error)
+            };
+        }
+    }
+
 }
