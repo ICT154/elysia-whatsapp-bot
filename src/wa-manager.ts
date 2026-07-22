@@ -156,8 +156,8 @@ export async function ensureSession(name: string) {
 
         const payload = {
             session: name,
-            from,
-            clearFrom: from.replace(/@.*/, ""),
+            from: remoteJid,
+            clearFrom: remoteJid.replace(/@.*/, ""),
             isGroup: remoteJid.endsWith("@g.us"),
             messageId: msg.key.id,
             timestamp: msg.messageTimestamp,
