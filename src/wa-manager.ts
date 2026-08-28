@@ -40,7 +40,9 @@ export async function ensureSession(name: string) {
     sessions.set(name, s);
 
     const sock = makeWASocket({
-        auth: state, logger: pino({ level: "silent" })
+        auth: state,
+        logger: pino({ level: "info" }),
+        browser: ["Ubuntu", "Chrome", "110.0.5481.77"]
     });
 
     s.sock = sock;
