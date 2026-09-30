@@ -1,7 +1,7 @@
 import makeWASocket, { DisconnectReason, useMultiFileAuthState } from "baileys";
 import { resolveWebhook } from "./webhook/WebhookManager";
 import { existsSync } from "fs";
-import { rm } from "fs/promises";
+import { rm, readdir } from "fs/promises";
 import {
     getAggregateVotesInPollMessage,
     updateMessageWithPollUpdate,
@@ -84,7 +84,10 @@ export async function ensureSession(name: string) {
 
         const msg = messages?.[0];
         if (!msg?.message) return;
-        if (msg.key.fromMe) return;
+        if (msg.key.fromMe) {
+            console.log(`[WA_INCOMING_IGNORED] Pesan dari diri sendiri/bot (fromMe: true). Gunakan nomor WhatsApp lain untuk chat ke bot.`);
+            return;
+        }
 
         const remoteJid = msg.key.remoteJid || "";
         const isGroup = remoteJid.endsWith("@g.us");
@@ -167,10 +170,16 @@ export async function ensureSession(name: string) {
             raw: msg.message,
         };
 
+        console.log(`[WA_INCOMING] [${name}] From: ${remoteJid} | Text: "${text}"`);
+
         const cfg = await resolveWebhook(name);
-        if (!cfg?.url) return;
+        if (!cfg?.url) {
+            console.warn(`[WA_WEBHOOK_WARN] Tidak ada webhook terdaftar untuk session ${name}`);
+            return;
+        }
 
         try {
+            console.log(`[WEBHOOK_FORWARD] Mengirim ke ${cfg.url}...`);
             await fetch(cfg.url, {
                 method: "POST",
                 headers: {
@@ -178,8 +187,9 @@ export async function ensureSession(name: string) {
                 },
                 body: JSON.stringify(payload),
             });
+            console.log(`[WEBHOOK_FORWARD_SUCCESS] Berhasil diteruskan ke ${cfg.url}`);
         } catch (e) {
-            console.error("webhook_forward_failed", e);
+            console.error("[WEBHOOK_FORWARD_FAILED]", e);
         }
     });
 
@@ -247,8 +257,29 @@ export async function getSockOrThrow(name: string) {
 }
 
 export function toJid(phone: string) {
+    // Jika sudah berupa JID lengkap (@lid, @s.whatsapp.net, @g.us), pertahankan
+    if (phone.includes("@")) {
+        return phone;
+    }
     // 62812xxxx -> 62812xxxx@s.whatsapp.net
     const digits = phone.replace(/\D/g, "");
     return `${digits}@s.whatsapp.net`;
+}
+
+export async function initSavedSessions() {
+    if (!existsSync("auth_info")) return;
+    try {
+        const entries = await readdir("auth_info", { withFileTypes: true });
+        for (const entry of entries) {
+            if (entry.isDirectory()) {
+                console.log(`[SESSION_AUTO_LOAD] Memuat session tersimpan: ${entry.name}`);
+                ensureSession(entry.name).catch((err) => {
+                    console.error(`[SESSION_AUTO_LOAD_ERR] Gagal memuat session ${entry.name}:`, err);
+                });
+            }
+        }
+    } catch (e) {
+        console.error("[SESSION_AUTO_LOAD_FAILED]", e);
+    }
 }
 

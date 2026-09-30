@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { routes } from "./routes/index";
+import { initSavedSessions } from "./wa-manager";
 
 const app = new Elysia()
   .use(
@@ -15,3 +16,6 @@ const app = new Elysia()
   .listen(3000);
 
 console.log(`🦊 Elysia running on http://localhost:${app.server?.port}`);
+
+// Muat otomatis session WhatsApp yang sudah login sebelumnya
+initSavedSessions();
