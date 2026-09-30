@@ -1,0 +1,10 @@
+services:
+  whatsapp-bot:
+    build: .
+    container_name: whatsapp-bot-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./auth_info:/app/auth_info
+      - ./data:/app/data
